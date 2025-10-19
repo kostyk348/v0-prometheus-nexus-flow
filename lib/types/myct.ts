@@ -1,5 +1,5 @@
 // Core MYCT (Semantic Hypergraph) Types
-export type MyctNodeType = "stack" | "text" | "image" | "hyperedge" | "video" | "link" | "audio"
+export type MyctNodeType = "stack" | "text" | "image" | "hyperedge" | "video" | "link" | "audio" | "section" | "table"
 
 export type HyperedgeTarget = [string, string] // [nodeId, path]
 
@@ -31,6 +31,9 @@ export interface MyctNode {
   targets?: HyperedgeTarget[]
   aggregator?: "concat" | "preview" | "expand"
   expanded?: boolean
+
+  headers?: string[]
+  rows?: string[][]
 }
 
 export interface MyctDocument {
@@ -78,4 +81,12 @@ export function createVideoNode(src: string, poster?: string, alt?: string, role
 
 export function createAudioNode(src: string, alt?: string, duration?: number, role?: string): MyctNode {
   return { type: "audio", src, alt, duration, role }
+}
+
+export function createSectionNode(heading: MyctNode, content: MyctNode[], role?: string): MyctNode {
+  return { type: "section", children: [heading, ...content], role }
+}
+
+export function createTableNode(headers: string[], rows: string[][], role?: string): MyctNode {
+  return { type: "table", headers, rows, role }
 }

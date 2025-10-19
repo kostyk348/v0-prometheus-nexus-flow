@@ -1,6 +1,6 @@
 // HTML Parser - Extracts semantic content from HTML
 import type { MyctNode } from "@/lib/types/myct"
-import { createStackNode, createTextNode } from "@/lib/types/myct"
+import { createStackNode, createTextNode, createSectionNode } from "@/lib/types/myct"
 
 export interface ParsedContent {
   title?: string
@@ -74,6 +74,158 @@ function extractMainContent(html: string, url: string): MyctNode[] {
     .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, "")
     .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, "")
 
+  const allElements: Array<{ type: string; level?: number; node: MyctNode; position: number }> = []
+
+  // Extract headings with positions
+  const headingMatches = Array.from(cleanHtml.matchAll(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi))
+  for (const match of headingMatches) {
+    const level = Number.parseInt(match[1])
+    const text = cleanText(stripTags(match[2]))
+    if (text.length > 0) {
+      allElements.push({
+        type: "heading",
+        level,
+        node: createTextNode(text, `heading-${level}`),
+        position: match.index || 0,
+      })
+    }
+  }
+
+  // Extract paragraphs with positions
+  const paragraphMatches = Array.from(cleanHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi))
+  for (const match of paragraphMatches) {
+    const text = cleanText(stripTags(match[1]))
+    if (text.length > 10) {
+      allElements.push({
+        type: "paragraph",
+        node: createTextNode(text, "paragraph"),
+        position: match.index || 0,
+      })
+    }
+  }
+
+  // Extract unordered lists with positions
+  const ulMatches = Array.from(cleanHtml.matchAll(/<ul[^>]*>([\s\S]*?)<\/ul>/gi))
+  for (const ulMatch of ulMatches) {
+    const listItems: MyctNode[] = []
+    const liMatches = ulMatch[1].matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)
+    for (const liMatch of liMatches) {
+      const text = cleanText(stripTags(liMatch[1]))
+      if (text.length > 0) {
+        listItems.push(createTextNode(text, "list-item"))
+      }
+    }
+    if (listItems.length > 0) {
+      allElements.push({
+        type: "list",
+        node: createStackNode(listItems, "list"),
+        position: ulMatch.index || 0,
+      })
+    }
+  }
+
+  // Extract ordered lists with positions
+  const olMatches = Array.from(cleanHtml.matchAll(/<ol[^>]*>([\s\S]*?)<\/ol>/gi))
+  for (const olMatch of olMatches) {
+    const listItems: MyctNode[] = []
+    const liMatches = olMatch[1].matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)
+    for (const liMatch of liMatches) {
+      const text = cleanText(stripTags(liMatch[1]))
+      if (text.length > 0) {
+        listItems.push(createTextNode(text, "list-item"))
+      }
+    }
+    if (listItems.length > 0) {
+      allElements.push({
+        type: "list",
+        node: createStackNode(listItems, "ordered-list"),
+        position: olMatch.index || 0,
+      })
+    }
+  }
+
+  // Extract blockquotes with positions
+  const blockquoteMatches = Array.from(cleanHtml.matchAll(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi))
+  for (const match of blockquoteMatches) {
+    const text = cleanText(stripTags(match[1]))
+    if (text.length > 0) {
+      allElements.push({
+        type: "quote",
+        node: createTextNode(text, "quote"),
+        position: match.index || 0,
+      })
+    }
+  }
+
+  allElements.sort((a, b) => a.position - b.position)
+
+  let currentSection: MyctNode[] = []
+  let currentHeading: MyctNode | null = null
+
+  for (const element of allElements) {
+    if (element.type === "heading") {
+      // Save previous section if it exists
+      if (currentHeading && currentSection.length > 0) {
+        nodes.push(createSectionNode(currentHeading, currentSection, "section"))
+      }
+      // Start new section
+      currentHeading = element.node
+      currentSection = []
+    } else {
+      // Add content to current section
+      if (currentHeading) {
+        currentSection.push(element.node)
+      } else {
+        // No heading yet, add directly to nodes
+        nodes.push(element.node)
+      }
+    }
+  }
+
+  // Add final section
+  if (currentHeading && currentSection.length > 0) {
+    nodes.push(createSectionNode(currentHeading, currentSection, "section"))
+  }
+
+  const tableMatches = cleanHtml.matchAll(/<table[^>]*>([\s\S]*?)<\/table>/gi)
+  for (const match of tableMatches) {
+    const tableHtml = match[1]
+
+    // Extract headers
+    const headers: string[] = []
+    const headerMatches = tableHtml.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/gi)
+    for (const headerMatch of headerMatches) {
+      const text = cleanText(stripTags(headerMatch[1]))
+      if (text.length > 0) {
+        headers.push(text)
+      }
+    }
+
+    // Extract rows
+    const rows: string[][] = []
+    const rowMatches = tableHtml.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)
+    for (const rowMatch of rowMatches) {
+      const row: string[] = []
+      const cellMatches = rowMatch[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)
+      for (const cellMatch of cellMatches) {
+        const text = cleanText(stripTags(cellMatch[1]))
+        row.push(text)
+      }
+      if (row.length > 0) {
+        rows.push(row)
+      }
+    }
+
+    if (headers.length > 0 || rows.length > 0) {
+      nodes.push({
+        type: "table",
+        headers: headers.length > 0 ? headers : undefined,
+        rows: rows.length > 0 ? rows : undefined,
+        role: "data-table",
+      })
+    }
+  }
+
   const imageMatches = cleanHtml.matchAll(/<img[^>]+>/gi)
   for (const match of imageMatches) {
     const imgTag = match[0]
@@ -106,7 +258,6 @@ function extractMainContent(html: string, url: string): MyctNode[] {
           role: "image",
         })
       } catch (error) {
-        // Skip invalid image URLs
         continue
       }
     }
@@ -153,66 +304,11 @@ function extractMainContent(html: string, url: string): MyctNode[] {
     }
   }
 
-  const headingMatches = cleanHtml.matchAll(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi)
-  for (const match of headingMatches) {
-    const level = Number.parseInt(match[1])
-    const text = cleanText(stripTags(match[2]))
-    if (text.length > 0) {
-      nodes.push(createTextNode(text, `heading-${level}`))
-    }
-  }
-
-  const paragraphMatches = cleanHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)
-  for (const match of paragraphMatches) {
-    const text = cleanText(stripTags(match[1]))
-    if (text.length > 10) {
-      nodes.push(createTextNode(text, "paragraph"))
-    }
-  }
-
-  const ulMatches = cleanHtml.matchAll(/<ul[^>]*>([\s\S]*?)<\/ul>/gi)
-  for (const ulMatch of ulMatches) {
-    const listItems: MyctNode[] = []
-    const liMatches = ulMatch[1].matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)
-    for (const liMatch of liMatches) {
-      const text = cleanText(stripTags(liMatch[1]))
-      if (text.length > 0) {
-        listItems.push(createTextNode(text, "list-item"))
-      }
-    }
-    if (listItems.length > 0) {
-      nodes.push(createStackNode(listItems, "list"))
-    }
-  }
-
-  const olMatches = cleanHtml.matchAll(/<ol[^>]*>([\s\S]*?)<\/ol>/gi)
-  for (const olMatch of olMatches) {
-    const listItems: MyctNode[] = []
-    const liMatches = olMatch[1].matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)
-    for (const liMatch of liMatches) {
-      const text = cleanText(stripTags(liMatch[1]))
-      if (text.length > 0) {
-        listItems.push(createTextNode(text, "list-item"))
-      }
-    }
-    if (listItems.length > 0) {
-      nodes.push(createStackNode(listItems, "ordered-list"))
-    }
-  }
-
-  const blockquoteMatches = cleanHtml.matchAll(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi)
-  for (const match of blockquoteMatches) {
-    const text = cleanText(stripTags(match[1]))
-    if (text.length > 0) {
-      nodes.push(createTextNode(text, "quote"))
-    }
-  }
-
+  // Fallback for pages with minimal content
   if (nodes.length < 5) {
     const contentMatches = cleanHtml.matchAll(/<(?:div|section|article)[^>]*>([\s\S]*?)<\/(?:div|section|article)>/gi)
     for (const match of contentMatches) {
       const text = cleanText(stripTags(match[1]))
-      // Only include substantial text blocks
       if (text.length > 50 && !text.match(/^(edit|share|save|report|delete)/i)) {
         nodes.push(createTextNode(text, "text"))
       }
@@ -226,6 +322,7 @@ function extractMainContent(html: string, url: string): MyctNode[] {
 
 function extractLinks(html: string, baseUrl: string): Array<{ text: string; url: string }> {
   const links: Array<{ text: string; url: string }> = []
+
   const linkMatches = html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)
 
   for (const match of linkMatches) {
@@ -266,7 +363,7 @@ function extractLinks(html: string, baseUrl: string): Array<{ text: string; url:
     }
   }
 
-  return links.slice(0, 100) // Increased limit to 100 links
+  return links.slice(0, 200)
 }
 
 function stripTags(html: string): string {

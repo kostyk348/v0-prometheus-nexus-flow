@@ -24,9 +24,10 @@ interface MyctRendererProps {
   myctDoc: MyctDocument
   lens: LensDocument
   onNavigate?: (url: string) => void
+  viewMode?: "standard" | "bento" | "layers"
 }
 
-export default function MyctRenderer({ myctDoc, lens, onNavigate }: MyctRendererProps) {
+export default function MyctRenderer({ myctDoc, lens, onNavigate, viewMode = "standard" }: MyctRendererProps) {
   const [isMobile, setIsMobile] = useState(false)
   const [annotationMode, setAnnotationMode] = useState(false)
   const [annotations, setAnnotations] = useState<Map<string, string>>(new Map())
@@ -40,43 +41,98 @@ export default function MyctRenderer({ myctDoc, lens, onNavigate }: MyctRenderer
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
+  const collectContentNodes = (node: MyctNode): MyctNode[] => {
+    if (node.type === "stack" && node.children) {
+      return node.children.flatMap(collectContentNodes)
+    }
+    if (node.type === "section" && node.children) {
+      return node.children.flatMap(collectContentNodes)
+    }
+    return [node]
+  }
+
+  const contentNodes = viewMode === "bento" ? collectContentNodes(myctDoc.root) : []
+
+  const getBentoItemClass = (node: MyctNode): string => {
+    const baseClass = "bento-item"
+    if (node.role?.includes("heading") || node.role === "page-title") {
+      return `${baseClass} bento-item-heading`
+    }
+    if (node.type === "image" || node.type === "video") {
+      return `${baseClass} bento-item-media`
+    }
+    if (node.type === "table") {
+      return `${baseClass} bento-item-table`
+    }
+    return baseClass
+  }
+
   return (
     <div className="animate-fade-in">
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border p-3 mb-4 flex items-center gap-3">
+      <div className="sticky top-0 z-10 glass-strong backdrop-blur-xl border-b border-border/50 p-4 mb-6 flex items-center gap-3 rounded-lg">
         <button
           onClick={() => setAnnotationMode(!annotationMode)}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-            annotationMode ? "bg-accent text-accent-foreground" : "bg-muted hover:bg-muted/80 text-muted-foreground"
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            annotationMode
+              ? "bg-gradient-to-r from-accent-primary to-accent-secondary text-background shadow-lg shadow-glow-primary"
+              : "glass hover:bg-layer-2 text-foreground"
           }`}
         >
           <Highlighter className="w-4 h-4" />
           {annotationMode ? "Annotation Mode: ON" : "Enable Annotations"}
         </button>
         {annotations.size > 0 && (
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-muted font-mono px-3 py-1 glass rounded-full">
             {annotations.size} annotation{annotations.size !== 1 ? "s" : ""}
           </span>
         )}
       </div>
 
-      <NodeRenderer
-        node={myctDoc.root}
-        lens={lens}
-        isMobile={isMobile}
-        depth={0}
-        annotationMode={annotationMode}
-        annotations={annotations}
-        onAnnotate={(nodeId, text) => {
-          const newAnnotations = new Map(annotations)
-          if (text) {
-            newAnnotations.set(nodeId, text)
-          } else {
-            newAnnotations.delete(nodeId)
-          }
-          setAnnotations(newAnnotations)
-        }}
-        onNavigate={onNavigate}
-      />
+      {viewMode === "bento" ? (
+        <div className="bento-grid">
+          {contentNodes.map((node, index) => (
+            <div key={index} className={getBentoItemClass(node)}>
+              <NodeRenderer
+                node={node}
+                lens={lens}
+                isMobile={isMobile}
+                depth={0}
+                annotationMode={annotationMode}
+                annotations={annotations}
+                onAnnotate={(nodeId, text) => {
+                  const newAnnotations = new Map(annotations)
+                  if (text) {
+                    newAnnotations.set(nodeId, text)
+                  } else {
+                    newAnnotations.delete(nodeId)
+                  }
+                  setAnnotations(newAnnotations)
+                }}
+                onNavigate={onNavigate}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <NodeRenderer
+          node={myctDoc.root}
+          lens={lens}
+          isMobile={isMobile}
+          depth={0}
+          annotationMode={annotationMode}
+          annotations={annotations}
+          onAnnotate={(nodeId, text) => {
+            const newAnnotations = new Map(annotations)
+            if (text) {
+              newAnnotations.set(nodeId, text)
+            } else {
+              newAnnotations.delete(nodeId)
+            }
+            setAnnotations(newAnnotations)
+          }}
+          onNavigate={onNavigate}
+        />
+      )}
     </div>
   )
 }
@@ -171,7 +227,7 @@ function NodeRenderer({
             href={node.url}
             onClick={handleLinkClick}
             style={computedStyles}
-            className="flex items-center gap-2 transition-all duration-200 cursor-pointer hover:underline py-1"
+            className="inline-flex items-center gap-2 transition-all duration-200 cursor-pointer hover:underline py-1 px-2 rounded-md hover:bg-layer-2"
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
@@ -183,23 +239,25 @@ function NodeRenderer({
 
     case "image":
       return (
-        <div className="relative group my-4" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+        <div className="relative group my-6" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
           <img
             src={node.src || "/placeholder.svg"}
             alt={node.alt || "Image"}
             style={computedStyles}
-            className="max-w-full h-auto rounded-lg shadow-lg transition-all duration-200"
+            className="max-w-full h-auto rounded-xl shadow-2xl transition-all duration-300 hover:scale-[1.02]"
             loading="lazy"
           />
-          {node.alt && <p className="text-sm text-muted-foreground mt-2 italic">{node.alt}</p>}
+          {node.alt && (
+            <p className="text-sm text-muted mt-3 italic px-2 py-1 glass rounded-md inline-block">{node.alt}</p>
+          )}
         </div>
       )
 
     case "video":
       return (
-        <div className="relative group my-4" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+        <div className="relative group my-6" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
           {node.src?.includes("youtube.com") || node.src?.includes("youtu.be") || node.src?.includes("vimeo.com") ? (
-            <div className="aspect-video rounded-lg overflow-hidden shadow-lg" style={computedStyles}>
+            <div className="aspect-video rounded-xl overflow-hidden shadow-2xl" style={computedStyles}>
               <iframe
                 src={node.src}
                 className="w-full h-full"
@@ -213,18 +271,20 @@ function NodeRenderer({
               poster={node.poster}
               controls
               style={computedStyles}
-              className="max-w-full h-auto rounded-lg shadow-lg"
+              className="max-w-full h-auto rounded-xl shadow-2xl"
             >
               Your browser does not support the video tag.
             </video>
           )}
-          {node.alt && <p className="text-sm text-muted-foreground mt-2 italic">{node.alt}</p>}
+          {node.alt && (
+            <p className="text-sm text-muted mt-3 italic px-2 py-1 glass rounded-md inline-block">{node.alt}</p>
+          )}
         </div>
       )
 
     case "audio":
       return (
-        <div className="relative group my-4 p-4 bg-surface rounded-lg border border-border" style={computedStyles}>
+        <div className="relative group my-4 p-5 glass-strong rounded-xl border border-border/50" style={computedStyles}>
           <div className="flex items-center gap-4">
             <button
               onClick={() => {
@@ -238,7 +298,7 @@ function NodeRenderer({
                   setIsPlaying(!isPlaying)
                 }
               }}
-              className="w-10 h-10 rounded-full bg-accent hover:bg-accent-hover flex items-center justify-center transition-colors"
+              className="w-12 h-12 rounded-full bg-gradient-to-r from-accent-primary to-accent-secondary hover:shadow-lg hover:shadow-glow-primary flex items-center justify-center transition-all"
             >
               {isPlaying ? (
                 <Pause className="w-5 h-5 text-background" />
@@ -247,9 +307,9 @@ function NodeRenderer({
               )}
             </button>
             <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">{node.alt || "Audio"}</p>
+              <p className="text-sm font-semibold text-foreground">{node.alt || "Audio"}</p>
               {node.duration && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted font-mono">
                   {Math.floor(node.duration / 60)}:{(node.duration % 60).toString().padStart(2, "0")}
                 </p>
               )}
@@ -262,13 +322,9 @@ function NodeRenderer({
                   setIsMuted(!isMuted)
                 }
               }}
-              className="w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center transition-colors"
+              className="w-10 h-10 rounded-full hover:bg-layer-2 flex items-center justify-center transition-colors"
             >
-              {isMuted ? (
-                <VolumeX className="w-4 h-4 text-muted-foreground" />
-              ) : (
-                <Volume2 className="w-4 h-4 text-muted-foreground" />
-              )}
+              {isMuted ? <VolumeX className="w-5 h-5 text-muted" /> : <Volume2 className="w-5 h-5 text-muted" />}
             </button>
           </div>
           <audio id={nodeId} src={node.src} className="hidden" />
@@ -276,8 +332,11 @@ function NodeRenderer({
       )
 
     case "text":
+      const isHeading = node.role?.startsWith("heading") || node.role === "page-title"
+      const headingId = isHeading ? `heading-${node.content?.replace(/\s+/g, "-").toLowerCase()}` : undefined
+
       return (
-        <div className="relative group">
+        <div className="relative group" id={headingId} data-heading={isHeading ? node.content : undefined}>
           <div
             style={computedStyles}
             className="transition-all duration-200 cursor-pointer"
@@ -288,31 +347,31 @@ function NodeRenderer({
             {node.content}
             {annotationMode && (
               <MessageSquare
-                className={`inline-block ml-2 w-4 h-4 ${hasAnnotation ? "text-accent fill-accent" : "text-muted-foreground opacity-0 group-hover:opacity-100"}`}
+                className={`inline-block ml-2 w-4 h-4 ${hasAnnotation ? "text-accent-primary fill-accent-primary" : "text-muted opacity-0 group-hover:opacity-100"}`}
               />
             )}
           </div>
 
           {isAnnotating && (
-            <div className="mt-2 p-3 bg-muted rounded-md border border-border">
+            <div className="mt-3 p-4 glass-strong rounded-lg border border-border/50 animate-slide-in-up">
               <textarea
                 value={annotationText}
                 onChange={(e) => setAnnotationText(e.target.value)}
                 placeholder="Add your annotation..."
-                className="w-full p-2 bg-background border border-border rounded text-sm resize-none"
+                className="w-full p-3 glass border border-border/50 rounded-lg text-sm resize-none focus:border-accent-primary transition-colors"
                 rows={3}
                 autoFocus
               />
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2 mt-3">
                 <button
                   onClick={handleAnnotationSave}
-                  className="px-3 py-1 bg-accent text-accent-foreground rounded text-sm font-medium hover:bg-accent/90"
+                  className="px-4 py-2 bg-gradient-to-r from-accent-primary to-accent-secondary text-background rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-glow-primary transition-all"
                 >
                   Save
                 </button>
                 <button
                   onClick={() => setIsAnnotating(false)}
-                  className="px-3 py-1 bg-muted text-muted-foreground rounded text-sm hover:bg-muted/80"
+                  className="px-4 py-2 glass hover:bg-layer-2 text-foreground rounded-lg text-sm transition-colors"
                 >
                   Cancel
                 </button>
@@ -322,7 +381,7 @@ function NodeRenderer({
                       onAnnotate(nodeId, "")
                       setIsAnnotating(false)
                     }}
-                    className="px-3 py-1 bg-destructive/10 text-destructive rounded text-sm hover:bg-destructive/20"
+                    className="px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-sm transition-colors"
                   >
                     Delete
                   </button>
@@ -332,10 +391,10 @@ function NodeRenderer({
           )}
 
           {hasAnnotation && !isAnnotating && (
-            <div className="mt-2 p-3 bg-accent/10 border-l-4 border-accent rounded text-sm">
-              <div className="flex items-start gap-2">
-                <MessageSquare className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                <p className="text-foreground">{annotations.get(nodeId)}</p>
+            <div className="mt-3 p-4 glass-strong border-l-4 border-accent-primary rounded-lg text-sm animate-slide-in-up">
+              <div className="flex items-start gap-3">
+                <MessageSquare className="w-4 h-4 text-accent-primary mt-0.5 flex-shrink-0" />
+                <p className="text-foreground leading-relaxed">{annotations.get(nodeId)}</p>
               </div>
             </div>
           )}
@@ -368,13 +427,13 @@ function NodeRenderer({
 
     case "hyperedge":
       return (
-        <div className="my-2">
+        <div className="my-3">
           <button
             onClick={handleHyperedgeClick}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
             style={computedStyles}
-            className="flex items-center gap-2 transition-all duration-200 cursor-pointer hover:opacity-100 disabled:opacity-50"
+            className="flex items-center gap-2 transition-all duration-200 cursor-pointer hover:opacity-100 disabled:opacity-50 px-3 py-2 rounded-lg glass hover:bg-layer-2"
             disabled={isExpanding}
           >
             {isExpanding ? (
@@ -392,7 +451,7 @@ function NodeRenderer({
           </button>
 
           {expandedContent && (
-            <div className="ml-6 mt-2 border-l-2 border-accent/30 pl-4 animate-expand">
+            <div className="ml-8 mt-3 border-l-2 border-accent-primary/30 pl-6 animate-slide-in-up">
               {expandedContent.map((child, index) => (
                 <NodeRenderer
                   key={index}
@@ -408,6 +467,82 @@ function NodeRenderer({
               ))}
             </div>
           )}
+        </div>
+      )
+
+    case "section":
+      const heading = node.children?.[0]
+      const sectionContent = node.children?.slice(1) || []
+      const headingText = heading?.content || ""
+      const sectionId = `section-${headingText.replace(/\s+/g, "-").toLowerCase()}`
+
+      return (
+        <section id={sectionId} data-heading={headingText} className="my-8 scroll-mt-24" style={computedStyles}>
+          {/* Render heading */}
+          {heading && (
+            <NodeRenderer
+              node={heading}
+              lens={lens}
+              isMobile={isMobile}
+              depth={depth}
+              annotationMode={annotationMode}
+              annotations={annotations}
+              onAnnotate={onAnnotate}
+              onNavigate={onNavigate}
+            />
+          )}
+
+          {/* Render section content */}
+          <div className="mt-4 space-y-3">
+            {sectionContent.map((child, index) => (
+              <NodeRenderer
+                key={index}
+                node={child}
+                lens={lens}
+                isMobile={isMobile}
+                depth={depth + 1}
+                annotationMode={annotationMode}
+                annotations={annotations}
+                onAnnotate={onAnnotate}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </div>
+        </section>
+      )
+
+    case "table":
+      return (
+        <div className="my-6 overflow-x-auto" style={computedStyles}>
+          <table className="w-full border-collapse glass-strong rounded-xl overflow-hidden">
+            {node.headers && node.headers.length > 0 && (
+              <thead className="bg-layer-2">
+                <tr>
+                  {node.headers.map((header, index) => (
+                    <th
+                      key={index}
+                      className="px-4 py-3 text-left text-sm font-semibold text-foreground border-b border-border/50"
+                    >
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            )}
+            {node.rows && node.rows.length > 0 && (
+              <tbody>
+                {node.rows.map((row, rowIndex) => (
+                  <tr key={rowIndex} className="hover:bg-layer-1 transition-colors">
+                    {row.map((cell, cellIndex) => (
+                      <td key={cellIndex} className="px-4 py-3 text-sm text-foreground border-b border-border/30">
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            )}
+          </table>
         </div>
       )
 
@@ -455,7 +590,16 @@ function computeNodeStyles(
 
   for (const rule of lens.rules) {
     if (matchesTarget(rule.target, { type: node.type, role: node.role }, state, isMobile)) {
-      styles = { ...styles, ...rule.styles }
+      const ruleStyles = { ...rule.styles }
+      if (ruleStyles.padding) {
+        const padding = ruleStyles.padding
+        delete ruleStyles.padding
+        ruleStyles.paddingTop = padding
+        ruleStyles.paddingRight = padding
+        ruleStyles.paddingBottom = padding
+        ruleStyles.paddingLeft = padding
+      }
+      styles = { ...styles, ...ruleStyles }
     }
   }
 
