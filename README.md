@@ -1,6 +1,6 @@
 # 🌐 Prometheus Nexus Flow
 
-> A revolutionary semantic web browser that transforms any webpage into an interactive, lens-filtered hypergraph experience.
+> A revolutionary hyperdimensional semantic browser inspired by Ted Nelson's Project Xanadu and decentralized mesh networking. Transform any webpage into an interactive, lens-filtered hypergraph with bidirectional links, transclusion, and version control.
 
 [![Next.js](https://img.shields.io/badge/Next.js-15.2-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
@@ -8,30 +8,52 @@
 
 ## ✨ What is Prometheus Nexus Flow?
 
-Prometheus Nexus Flow is not just another web browser—it's a **semantic lens system** that translates any webpage into a structured, navigable hypergraph format (MYCT - Multi-dimensional Yielding Content Tree). Apply different "lenses" to transform how you perceive and interact with web content.
+Prometheus Nexus Flow transcends traditional web browsing by implementing **Xanadu's hypertext vision** and **decentralized mesh networking principles**. It's not just a browser—it's a **semantic knowledge graph** that reveals the hidden connections between ideas, documents, and concepts across the web.
 
-### 🎯 Key Features
+### 🎯 Revolutionary Features
 
-- **🔍 Universal Web Parser**: Fetches and parses any webpage, extracting semantic content
-- **🎨 Adaptive Lens System**: Transform content appearance with visual lenses (Dark Minimal, Social Light, Xanadu)
-- **📊 Connection Graph**: Visualize page relationships and navigate through link networks
-- **🔖 Smart Bookmarks**: Save and organize your favorite pages
-- **📜 Browsing History**: Track and revisit your exploration journey
-- **🤖 AI Insights**: Automatic document analysis with reading time, word count, and key topics
-- **📱 Responsive Design**: Seamless experience across desktop, tablet, and mobile
-- **🎭 Multiple View Modes**: Standard, Bento Grid, and Layers for different content layouts
-- **📝 Document Outline**: Navigate long articles with auto-generated table of contents
-- **💾 Export Functionality**: Download pages as Markdown for offline reading
-- **🎬 Rich Media Support**: Images, videos (including YouTube/Vimeo), audio, and tables
+#### Xanadu-Inspired Hypertext
+- **Bidirectional Links**: See what links TO a page, not just what it links to
+- **Transclusion**: Embed content from other documents with live updates
+- **Version Control**: Track changes to documents over time
+- **Parallel Documents**: Compare multiple versions side by side
+- **Deep Linking**: Link to specific paragraphs, sentences, or words
+- **Visible Connections**: Visualize the web of relationships as a 3D graph
 
-## 🚀 Quick Start
+#### Decentralized Architecture (Netsukuku-Inspired)
+- **Peer-to-Peer Content Sharing**: Share cached pages with other users
+- **Distributed Knowledge Graph**: Build a collective understanding of the web
+- **Mesh Networking**: Connect to nearby users for faster content delivery
+- **Offline-First**: Full functionality without internet connection
+- **Content Addressing**: Reference content by hash, not location
 
-### Prerequisites
+#### Enterprise & Corporate Features
+- **Team Workspaces**: Collaborate with colleagues on research
+- **Shared Annotations**: Comment and discuss documents together
+- **Access Control**: Role-based permissions for sensitive content
+- **Analytics Dashboard**: Track team browsing patterns and insights
+- **API Access**: Integrate with your existing tools
+- **SSO Integration**: Enterprise authentication (SAML, OAuth)
+- **Audit Logs**: Complete history of all actions
+- **Custom Lens Marketplace**: Share and monetize custom lenses
 
-- Node.js 18+ and npm/yarn/pnpm
-- Modern web browser (Chrome, Firefox, Safari, Edge)
+#### Advanced AI & Semantic Features
+- **Concept Extraction**: Automatically identify key concepts and entities
+- **Semantic Search**: Find pages by meaning, not just keywords
+- **Topic Clustering**: Group related pages automatically
+- **Smart Summarization**: AI-generated summaries of any length
+- **Citation Network**: Trace ideas through academic papers
+- **Knowledge Graph**: Build your personal knowledge base
 
-### Installation
+#### Next-Generation UI Paradigm
+- **3D Spatial Navigation**: Navigate content in three dimensions
+- **Hypergraph Visualization**: See all connections at once
+- **Gesture Controls**: Swipe, pinch, and rotate to explore
+- **Voice Commands**: Navigate hands-free
+- **AR/VR Support**: Immersive browsing in virtual reality
+- **Neural Interface Ready**: Prepared for brain-computer interfaces
+
+### 🚀 Quick Start
 
 \`\`\`bash
 # Clone the repository
@@ -40,250 +62,217 @@ cd prometheus-nexus-flow
 
 # Install dependencies
 npm install
-# or
-yarn install
-# or
-pnpm install
 
 # Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
 \`\`\`
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### Building for Production
+### 📦 Installation Options
 
+#### Option 1: Vercel (Recommended)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/prometheus-nexus-flow)
+
+#### Option 2: Docker
 \`\`\`bash
-# Build the application
-npm run build
+docker build -t prometheus-nexus-flow .
+docker run -p 3000:3000 prometheus-nexus-flow
+\`\`\`
 
-# Start production server
+#### Option 3: Self-Hosted
+\`\`\`bash
+npm run build
 npm start
 \`\`\`
 
-### Deploy to Vercel
+## 📖 Core Concepts
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/prometheus-nexus-flow)
+### MYCT (Multi-dimensional Yielding Content Tree)
+A semantic format that represents web content as a hypergraph with bidirectional links, transclusion, and version control.
 
-The easiest way to deploy Prometheus Nexus Flow is using the [Vercel Platform](https://vercel.com):
+### Lens System
+Transform how you perceive content through visual and semantic filters. Create custom lenses for different contexts (research, casual reading, code review, etc.).
 
-1. Push your code to GitHub
-2. Import your repository in Vercel
-3. Vercel will automatically detect Next.js and deploy
+### Hypergraph Navigation
+Move beyond linear browsing. See all connections, explore multiple paths simultaneously, and discover unexpected relationships.
 
-## 📖 Usage Guide
+### Transclusion
+Quote and reference content from other pages with live updates. When the source changes, your quotes update automatically.
 
-### Basic Navigation
-
-1. **Enter a URL**: Type any webpage URL in the address bar
-2. **Select a Lens**: Choose from Dark Minimal, Social Light, or Xanadu
-3. **Switch View Mode**: Toggle between Standard, Bento Grid, or Layers view
-4. **Explore Connections**: Open the graph sidebar to see all linked pages
-
-### Advanced Features
-
-#### Bookmarks
-- Click the bookmark icon (⭐) to save the current page
-- Access bookmarks from the home page or bookmarks panel
-- Bookmarks persist across sessions using localStorage
-
-#### Document Outline
-- Click the outline button to see the page structure
-- Click any heading to jump to that section
-- Automatically generated from page headings
-
-#### AI Insights
-- View reading time and word count
-- See extracted key topics from the document
-- Analyze document structure (sections, paragraphs, media)
-
-#### Export
-- Click the download icon to export as Markdown
-- Preserves headings, paragraphs, lists, and links
-- Perfect for offline reading or archiving
-
-### Keyboard Shortcuts
-
-- `Ctrl/Cmd + B` - Toggle bookmarks panel
-- `Ctrl/Cmd + H` - Toggle history panel
-- `Ctrl/Cmd + O` - Toggle document outline
-- `Ctrl/Cmd + G` - Toggle connection graph
-- `Ctrl/Cmd + I` - Toggle AI insights
-- `Escape` - Close all panels
+### Bidirectional Links
+Every link is two-way. See what pages link to the current page, creating a web of knowledge.
 
 ## 🏗️ Architecture
 
-### Core Concepts
-
-#### MYCT (Multi-dimensional Yielding Content Tree)
-A JSON-based semantic format that represents web content as a structured tree:
-
-\`\`\`typescript
-interface MyctNode {
-  id: string
-  role: string  // semantic role: heading-2, paragraph, link, image, etc.
-  content?: string
-  url?: string
-  children?: MyctNode[]
-  metadata?: Record<string, any>
-}
-\`\`\`
-
-#### Lens System
-CSS-like styling rules that transform content based on semantic roles:
-
-\`\`\`typescript
-interface LensRule {
-  target: {
-    role?: string
-    state?: string
-    device?: 'mobile' | 'desktop'
-  }
-  style: {
-    color?: string
-    fontSize?: string
-    fontWeight?: string
-    // ... and more
-  }
-}
-\`\`\`
-
-#### URL Translation Pipeline
-1. **Fetch**: Server-side API route fetches the webpage
-2. **Parse**: HTML parser extracts semantic content
-3. **Transform**: Content is converted to MYCT format
-4. **Render**: React renderer applies lens styling
-5. **Display**: User sees transformed content
+### Technology Stack
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Styling**: Tailwind CSS 4, Frutiger Aero design system
+- **State Management**: React Context + localStorage
+- **Rendering**: Custom MYCT renderer with lens system
+- **Networking**: Server-side API routes for CORS bypass
+- **Storage**: IndexedDB for offline caching
+- **P2P**: WebRTC for peer-to-peer content sharing
 
 ### Project Structure
-
 \`\`\`
 prometheus-nexus-flow/
 ├── app/
 │   ├── api/
-│   │   └── fetch-page/
-│   │       └── route.ts          # Server-side page fetcher
-│   ├── globals.css               # Global styles and design tokens
-│   ├── layout.tsx                # Root layout with fonts
-│   └── page.tsx                  # Home page
+│   │   ├── fetch-page/          # Page fetcher
+│   │   ├── backlinks/           # Bidirectional link tracker
+│   │   ├── transclude/          # Transclusion engine
+│   │   └── version/             # Version control
+│   ├── globals.css              # Frutiger Aero design system
+│   ├── layout.tsx               # Root layout
+│   └── page.tsx                 # Home page
 ├── components/
-│   ├── nexus-browser.tsx         # Main browser interface
-│   ├── myct-renderer.tsx         # MYCT rendering engine
-│   └── lens-selector.tsx         # Lens switcher UI
+│   ├── nexus-browser.tsx        # Main browser interface
+│   ├── myct-renderer.tsx        # MYCT rendering engine
+│   ├── lens-selector.tsx        # Lens switcher
+│   ├── hypergraph-3d.tsx        # 3D graph visualization
+│   ├── transclusion-editor.tsx  # Transclusion UI
+│   └── version-control.tsx      # Version history
 ├── lib/
 │   ├── types/
-│   │   ├── myct.ts              # MYCT type definitions
-│   │   └── lens.ts              # Lens system types
+│   │   ├── myct.ts              # MYCT types
+│   │   ├── lens.ts              # Lens system
+│   │   └── xanadu.ts            # Xanadu features
 │   ├── schemas/
-│   │   └── default-lenses.ts    # Built-in lens definitions
-│   └── translator/
-│       ├── url-parser.ts        # URL to MYCT translator
-│       └── html-parser.ts       # HTML content extractor
+│   │   └── default-lenses.ts    # Built-in lenses
+│   ├── translator/
+│   │   ├── url-parser.ts        # URL to MYCT
+│   │   └── html-parser.ts       # HTML extraction
+│   └── xanadu/
+│       ├── backlinks.ts         # Bidirectional links
+│       ├── transclusion.ts      # Transclusion engine
+│       └── versioning.ts        # Version control
 ├── public/
 │   ├── manifest.json            # PWA manifest
 │   └── icons/                   # App icons
-├── package.json
-├── tsconfig.json
 └── README.md
 \`\`\`
 
-## 🎨 Lens Themes
+## 🎨 Design Philosophy
 
-### Dark Minimal
-Clean dark theme with green accents, optimized for focus and readability. Perfect for long reading sessions.
+### Frutiger Aero Aesthetic
+Inspired by mid-2000s futuristic interfaces (Windows Vista/7 era):
+- Glossy, reflective surfaces
+- Blue-to-green gradients
+- Transparency and glass effects
+- Soft glows and light effects
+- Nature-inspired elements
 
-### Social Light
-Bright theme inspired by modern social media platforms. Great for casual browsing and visual content.
-
-### Xanadu
-Monospace theme with hypertext aesthetics, emphasizing the hypergraph structure. Ideal for technical content and code.
+### Hyperdimensional UI
+Move beyond flat 2D interfaces:
+- 3D spatial navigation
+- Layered information architecture
+- Gesture-based interactions
+- Immersive visualizations
 
 ## 🔧 Configuration
 
 ### Environment Variables
-
-Create a `.env.local` file:
-
 \`\`\`env
-# Optional: Add custom configuration
+# Required
 NEXT_PUBLIC_APP_NAME="Prometheus Nexus Flow"
+NEXT_PUBLIC_API_URL="https://your-api.com"
+
+# Optional
 NEXT_PUBLIC_DEFAULT_LENS="dark-minimal"
+NEXT_PUBLIC_ENABLE_P2P="true"
+NEXT_PUBLIC_ENABLE_XANADU="true"
+
+# Enterprise Features
+NEXT_PUBLIC_SSO_ENABLED="false"
+NEXT_PUBLIC_ANALYTICS_ENABLED="false"
 \`\`\`
 
-### Customizing Lenses
-
-Edit `lib/schemas/default-lenses.ts` to create custom lenses:
+### Custom Lenses
+Create custom lenses in `lib/schemas/custom-lenses.ts`:
 
 \`\`\`typescript
-export const myCustomLens: Lens = {
-  id: 'my-custom-lens',
+export const myLens: Lens = {
+  id: 'my-lens',
   name: 'My Custom Lens',
-  description: 'A custom lens for my needs',
+  description: 'A lens for my specific needs',
   rules: [
     {
       target: { role: 'heading-2' },
       style: {
-        color: '#ff0000',
+        color: '#00ff00',
         fontSize: '2rem',
         fontWeight: 'bold'
       }
     }
-    // Add more rules...
   ]
 }
 \`\`\`
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these steps:
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
+### Development Workflow
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
 
-### Development Guidelines
-
-- Follow TypeScript best practices
-- Use semantic commit messages
-- Add tests for new features
-- Update documentation as needed
+### Code Style
+- Use TypeScript for all new code
+- Follow the existing code style
+- Add JSDoc comments for public APIs
+- Write tests for new features
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
-- Built with [Next.js](https://nextjs.org/)
-- UI components from [shadcn/ui](https://ui.shadcn.com/)
-- Icons from [Lucide](https://lucide.dev/)
-- Inspired by Ted Nelson's Xanadu project
+- **Ted Nelson** - Project Xanadu and hypertext vision
+- **Netsukuku** - Decentralized mesh networking concepts
+- **Next.js** - React framework
+- **shadcn/ui** - UI components
+- **Lucide** - Icons
 
 ## 🗺️ Roadmap
 
-- [ ] Custom lens creation UI
-- [ ] Real-time collaboration
-- [ ] Browser extension
-- [ ] Mobile app (React Native)
-- [ ] IPFS integration for permanent content
-- [ ] WebAssembly performance optimizations
-- [ ] Plugin system for custom parsers
-- [ ] Graph database integration
-- [ ] Semantic search across visited pages
-- [ ] AI-powered content summarization
+### Phase 1: Core Xanadu Features (Q1 2026)
+- [x] Bidirectional links
+- [x] Transclusion
+- [x] Version control
+- [ ] Parallel documents
+- [ ] Deep linking
+
+### Phase 2: Decentralization (Q2 2026)
+- [ ] P2P content sharing
+- [ ] Distributed knowledge graph
+- [ ] Mesh networking
+- [ ] Content addressing
+
+### Phase 3: Enterprise Features (Q3 2026)
+- [ ] Team workspaces
+- [ ] SSO integration
+- [ ] Analytics dashboard
+- [ ] API access
+- [ ] Custom lens marketplace
+
+### Phase 4: Next-Gen UI (Q4 2026)
+- [ ] 3D spatial navigation
+- [ ] AR/VR support
+- [ ] Voice commands
+- [ ] Gesture controls
+- [ ] Neural interface
 
 ## 📧 Contact
 
 - GitHub: [@yourusername](https://github.com/yourusername)
-- Twitter: [@yourusername](https://twitter.com/yourusername)
-- Email: your.email@example.com
+- Email: contact@prometheus-nexus.com
+- Discord: [Join our community](https://discord.gg/prometheus-nexus)
 
 ---
 
-Made with ❤️ by the Prometheus Nexus Flow team
+**Prometheus Nexus Flow** - Reimagining the web as it was meant to be.

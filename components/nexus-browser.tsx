@@ -36,6 +36,11 @@ import {
   BarChart3,
   Languages,
   BookOpen,
+  GitBranch,
+  Link2,
+  FileText,
+  Users,
+  Boxes,
 } from "lucide-react"
 import MyctRenderer from "@/components/myct-renderer"
 import LensSelector from "@/components/lens-selector"
@@ -43,6 +48,9 @@ import { translateUrl } from "@/lib/translator/url-parser"
 import type { MyctDocument } from "@/lib/types/myct"
 import type { LensDocument } from "@/lib/types/lens"
 import { darkMinimalLens } from "@/lib/schemas/default-lenses"
+import { BacklinkTracker } from "@/lib/xanadu/backlinks"
+import { TransclusionEngine } from "@/lib/xanadu/transclusion"
+import { VersionControl } from "@/lib/xanadu/versioning"
 
 interface BookmarkedPage {
   url: string
@@ -106,6 +114,20 @@ export default function NexusBrowser() {
   const [collections, setCollections] = useState<string[]>(["Reading List", "Research", "Favorites"])
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [translationLang, setTranslationLang] = useState<string | null>(null)
+
+  const [showBacklinks, setShowBacklinks] = useState(false)
+  const [showTransclusions, setShowTransclusions] = useState(false)
+  const [showVersions, setShowVersions] = useState(false)
+  const [showWorkspaces, setShowWorkspaces] = useState(false)
+  const [showSpatialNav, setShowSpatialNav] = useState(false)
+
+  const [readingProgress, setReadingProgress] = useState(0)
+  const [focusMode, setFocusMode] = useState(false)
+  const [textSize, setTextSize] = useState(100)
+  const [lineHeight, setLineHeight] = useState(1.6)
+  const [contentWidth, setContentWidth] = useState(65)
+  const [autoScroll, setAutoScroll] = useState(false)
+  const [scrollSpeed, setScrollSpeed] = useState(50)
 
   useEffect(() => {
     const saved = localStorage.getItem("nexus-bookmarks")
@@ -210,6 +232,33 @@ export default function NexusBrowser() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [darkMode, readingMode])
 
+  useEffect(() => {
+    const handleScroll = () => {
+      const windowHeight = window.innerHeight
+      const documentHeight = document.documentElement.scrollHeight
+      const scrollTop = window.scrollY
+      const progress = (scrollTop / (documentHeight - windowHeight)) * 100
+      setReadingProgress(Math.min(100, Math.max(0, progress)))
+    }
+
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  useEffect(() => {
+    if (!autoScroll) return
+
+    const interval = setInterval(() => {
+      window.scrollBy({ top: scrollSpeed / 10, behavior: "smooth" })
+    }, 100)
+
+    return () => clearInterval(interval)
+  }, [autoScroll, scrollSpeed])
+
+  const [backlinkTracker] = useState(() => new BacklinkTracker())
+  const [transclusionEngine] = useState(() => new TransclusionEngine())
+  const [versionControl] = useState(() => new VersionControl())
+
   const navigateToUrl = useCallback(
     async (targetUrl: string, addToHistory = true) => {
       if (!targetUrl.trim()) return
@@ -241,6 +290,12 @@ export default function NexusBrowser() {
 
         setCachedPages((prev) => new Map(prev).set(targetUrl, result.myct!))
 
+        if (currentUrl) {
+          backlinkTracker.addLink(currentUrl, targetUrl)
+        }
+
+        versionControl.saveVersion(targetUrl, result.myct)
+
         if (addToHistory) {
           const newHistory = history.slice(0, historyIndex + 1)
           newHistory.push(targetUrl)
@@ -252,7 +307,7 @@ export default function NexusBrowser() {
       setLoading(false)
       setLoadTime(performance.now() - startTime)
     },
-    [history, historyIndex, offlineMode, cachedPages],
+    [history, historyIndex, offlineMode, cachedPages, currentUrl, backlinkTracker, versionControl],
   )
 
   const handleNavigate = () => {
@@ -450,6 +505,73 @@ export default function NexusBrowser() {
     }
   }
 
+  const translatePage = async (targetLang: string) => {
+    if (!myctDoc) return
+
+    setTranslationLang(targetLang)
+    // In a real implementation, this would call a translation API
+    // For now, we'll just mark it as translated
+    console.log(`[v0] Translating page to ${targetLang}`)
+  }
+
+  const comparePages = async (url1: string, url2: string) => {
+    const result1 = await translateUrl(url1)
+    const result2 = await translateUrl(url2)
+
+    if (result1.myct && result2.myct) {
+      setMyctDoc(result1.myct)
+      setComparisonDoc(result2.myct)
+      setShowComparison(true)
+    }
+  }
+
+  const getPerformanceMetrics = () => {
+    if (!myctDoc) return null
+
+    return {
+      loadTime: loadTime.toFixed(2),
+      nodeCount: countNodes(myctDoc.root),
+      linkCount: countLinks(myctDoc.root),
+      imageCount: countImages(myctDoc.root),
+      wordCount: countWords(myctDoc.root),
+    }
+  }
+
+  const countNodes = (node: any): number => {
+    let count = 1
+    if (node.children) {
+      count += node.children.reduce((sum: number, child: any) => sum + countNodes(child), 0)
+    }
+    return count
+  }
+
+  const countLinks = (node: any): number => {
+    let count = node.type === "link" ? 1 : 0
+    if (node.children) {
+      count += node.children.reduce((sum: number, child: any) => sum + countLinks(child), 0)
+    }
+    return count
+  }
+
+  const countImages = (node: any): number => {
+    let count = node.type === "image" ? 1 : 0
+    if (node.children) {
+      count += node.children.reduce((sum: number, child: any) => sum + countImages(child), 0)
+    }
+    return count
+  }
+
+  const countWords = (node: any): number => {
+    let count = 0
+    if (node.type === "text" && node.content) {
+      count = node.content.split(/\s+/).length
+    }
+    if (node.children) {
+      count += node.children.reduce((sum: number, child: any) => sum + countWords(child), 0)
+    }
+    return count
+  }
+
   const exampleUrls = useMemo(
     () => [
       { url: "https://en.wikipedia.org/wiki/Fifth_Generation_Computer_Systems", label: "Fifth Generation Computers" },
@@ -461,6 +583,15 @@ export default function NexusBrowser() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
+      {myctDoc && (
+        <div className="fixed top-0 left-0 right-0 h-1 bg-layer-2 z-50">
+          <div
+            className="h-full bg-gradient-to-r from-accent-primary via-accent-secondary to-accent-tertiary transition-all duration-300"
+            style={{ width: `${readingProgress}%` }}
+          />
+        </div>
+      )}
+
       {showCommandPalette && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center pt-32 animate-fade-in">
           <div className="w-full max-w-2xl glass-strong rounded-2xl shadow-2xl shadow-glow-primary/30 overflow-hidden animate-slide-in-up">
@@ -476,6 +607,9 @@ export default function NexusBrowser() {
               </div>
             </div>
             <div className="p-2 max-h-96 overflow-y-auto">
+              <div className="mb-2 px-3 py-1">
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider">Basic Actions</p>
+              </div>
               <CommandItem icon={<Bookmark />} label="Toggle Bookmark" shortcut="⌘B" onClick={toggleBookmark} />
               <CommandItem
                 icon={<Moon />}
@@ -494,6 +628,78 @@ export default function NexusBrowser() {
               <CommandItem icon={<Printer />} label="Export PDF" onClick={exportAsPDF} />
               <CommandItem icon={<Share2 />} label="Share Page" onClick={shareCurrentPage} />
               <CommandItem icon={<Copy />} label="Copy Content" onClick={copyContent} />
+
+              <div className="mb-2 px-3 py-1 mt-3">
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider">Xanadu Features</p>
+              </div>
+              <CommandItem
+                icon={<Link2 />}
+                label="Show Backlinks"
+                onClick={() => {
+                  setShowBacklinks(!showBacklinks)
+                  setShowCommandPalette(false)
+                }}
+              />
+              <CommandItem
+                icon={<FileText />}
+                label="Show Transclusions"
+                onClick={() => {
+                  setShowTransclusions(!showTransclusions)
+                  setShowCommandPalette(false)
+                }}
+              />
+              <CommandItem
+                icon={<GitBranch />}
+                label="Show Version History"
+                onClick={() => {
+                  setShowVersions(!showVersions)
+                  setShowCommandPalette(false)
+                }}
+              />
+
+              <div className="mb-2 px-3 py-1 mt-3">
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider">Advanced Features</p>
+              </div>
+              <CommandItem
+                icon={<Users />}
+                label="Show Workspaces"
+                onClick={() => {
+                  setShowWorkspaces(!showWorkspaces)
+                  setShowCommandPalette(false)
+                }}
+              />
+              <CommandItem
+                icon={<Boxes />}
+                label="3D Spatial Navigation"
+                onClick={() => {
+                  setShowSpatialNav(!showSpatialNav)
+                  setShowCommandPalette(false)
+                }}
+              />
+              <CommandItem
+                icon={<Network />}
+                label="Connection Graph"
+                onClick={() => {
+                  setShowGraph(!showGraph)
+                  setShowCommandPalette(false)
+                }}
+              />
+              <CommandItem
+                icon={<Sparkles />}
+                label="AI Insights"
+                onClick={() => {
+                  setShowAI(!showAI)
+                  setShowCommandPalette(false)
+                }}
+              />
+              <CommandItem
+                icon={<BarChart3 />}
+                label="Performance Metrics"
+                onClick={() => {
+                  setShowPerformance(!showPerformance)
+                  setShowCommandPalette(false)
+                }}
+              />
             </div>
           </div>
         </div>
@@ -695,6 +901,54 @@ export default function NexusBrowser() {
                   <Copy className="w-4 h-4" />
                 </Button>
               </div>
+
+              <div className="flex items-center gap-1 glass rounded-lg p-1 border border-border/30">
+                <Button
+                  onClick={() => setShowBacklinks(!showBacklinks)}
+                  variant="ghost"
+                  size="sm"
+                  className={`w-9 h-9 p-0 transition-all ${showBacklinks ? "bg-accent-primary/20 text-accent-primary shadow-lg shadow-glow-primary/30" : "hover:bg-accent-primary/10"}`}
+                  title="Backlinks (Xanadu)"
+                >
+                  <Link2 className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={() => setShowTransclusions(!showTransclusions)}
+                  variant="ghost"
+                  size="sm"
+                  className={`w-9 h-9 p-0 transition-all ${showTransclusions ? "bg-accent-primary/20 text-accent-primary shadow-lg shadow-glow-primary/30" : "hover:bg-accent-primary/10"}`}
+                  title="Transclusions (Xanadu)"
+                >
+                  <FileText className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={() => setShowVersions(!showVersions)}
+                  variant="ghost"
+                  size="sm"
+                  className={`w-9 h-9 p-0 transition-all ${showVersions ? "bg-accent-primary/20 text-accent-primary shadow-lg shadow-glow-primary/30" : "hover:bg-accent-primary/10"}`}
+                  title="Version History (Xanadu)"
+                >
+                  <GitBranch className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={() => setShowWorkspaces(!showWorkspaces)}
+                  variant="ghost"
+                  size="sm"
+                  className={`w-9 h-9 p-0 transition-all ${showWorkspaces ? "bg-accent-primary/20 text-accent-primary shadow-lg shadow-glow-primary/30" : "hover:bg-accent-primary/10"}`}
+                  title="Workspaces (Corporate)"
+                >
+                  <Users className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={() => setShowSpatialNav(!showSpatialNav)}
+                  variant="ghost"
+                  size="sm"
+                  className={`w-9 h-9 p-0 transition-all ${showSpatialNav ? "bg-accent-primary/20 text-accent-primary shadow-lg shadow-glow-primary/30" : "hover:bg-accent-primary/10"}`}
+                  title="Spatial Navigation (3D)"
+                >
+                  <Boxes className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           )}
 
@@ -808,15 +1062,82 @@ export default function NexusBrowser() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <Button onClick={exportAsMarkdown} variant="outline" size="sm">
-                <Download className="w-4 h-4 mr-2" />
-                Export MD
-              </Button>
-              <Button onClick={shareCurrentPage} variant="outline" size="sm">
-                <Share2 className="w-4 h-4 mr-2" />
-                Share
-              </Button>
+            <div className="border-t border-accent-primary/20 pt-3 mt-3">
+              <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Xanadu Features</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={() => {
+                    setShowBacklinks(!showBacklinks)
+                    setShowMobileMenu(false)
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Link2 className="w-4 h-4 mr-2" />
+                  Backlinks
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowTransclusions(!showTransclusions)
+                    setShowMobileMenu(false)
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Transclusions
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowVersions(!showVersions)
+                    setShowMobileMenu(false)
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <GitBranch className="w-4 h-4 mr-2" />
+                  Versions
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowWorkspaces(!showWorkspaces)
+                    setShowMobileMenu(false)
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Workspaces
+                </Button>
+              </div>
+            </div>
+
+            <div className="border-t border-accent-primary/20 pt-3">
+              <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Advanced</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={() => {
+                    setShowSpatialNav(!showSpatialNav)
+                    setShowMobileMenu(false)
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Boxes className="w-4 h-4 mr-2" />
+                  3D Nav
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowPerformance(!showPerformance)
+                    setShowMobileMenu(false)
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Performance
+                </Button>
+              </div>
             </div>
 
             <LensSelector selectedLens={selectedLens} onLensChange={setSelectedLens} />
@@ -885,6 +1206,60 @@ export default function NexusBrowser() {
           </aside>
         )}
 
+        {showBacklinks && myctDoc && (
+          <aside className="w-80 glass-strong border-r border-accent-primary/20 p-4 overflow-auto animate-slide-in-right shadow-lg">
+            <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
+              <div className="w-1 h-4 bg-gradient-to-b from-accent-primary to-accent-secondary rounded-full" />
+              Backlinks (Xanadu)
+            </h3>
+            <BacklinksPanel currentUrl={currentUrl} backlinkTracker={backlinkTracker} onNavigate={navigateToUrl} />
+          </aside>
+        )}
+
+        {showTransclusions && myctDoc && (
+          <aside className="w-96 glass-strong border-r border-accent-primary/20 p-4 overflow-auto animate-slide-in-right shadow-lg">
+            <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
+              <div className="w-1 h-4 bg-gradient-to-b from-accent-primary to-accent-secondary rounded-full" />
+              Transclusions (Xanadu)
+            </h3>
+            <TransclusionsPanel
+              currentUrl={currentUrl}
+              transclusionEngine={transclusionEngine}
+              onNavigate={navigateToUrl}
+            />
+          </aside>
+        )}
+
+        {showVersions && myctDoc && (
+          <aside className="w-96 glass-strong border-r border-accent-primary/20 p-4 overflow-auto animate-slide-in-right shadow-lg">
+            <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
+              <div className="w-1 h-4 bg-gradient-to-b from-accent-primary to-accent-secondary rounded-full" />
+              Version History (Xanadu)
+            </h3>
+            <VersionHistoryPanel currentUrl={currentUrl} versionControl={versionControl} />
+          </aside>
+        )}
+
+        {showWorkspaces && myctDoc && (
+          <aside className="w-96 glass-strong border-r border-accent-primary/20 p-4 overflow-auto animate-slide-in-right shadow-lg">
+            <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
+              <div className="w-1 h-4 bg-gradient-to-b from-accent-primary to-accent-secondary rounded-full" />
+              Workspaces (Corporate)
+            </h3>
+            <WorkspacesPanel />
+          </aside>
+        )}
+
+        {showSpatialNav && myctDoc && (
+          <aside className="w-full glass-strong border-r border-accent-primary/20 p-4 overflow-auto animate-slide-in-right shadow-lg">
+            <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
+              <div className="w-1 h-4 bg-gradient-to-b from-accent-primary to-accent-secondary rounded-full" />
+              Spatial Navigation (3D)
+            </h3>
+            <SpatialNavigationPanel myctDoc={myctDoc} currentUrl={currentUrl} onNavigate={navigateToUrl} />
+          </aside>
+        )}
+
         <div className="flex-1 overflow-auto">
           {error && (
             <div className="max-w-4xl mx-auto mt-8 p-6 hyper-card animate-slide-in-up">
@@ -932,14 +1307,22 @@ export default function NexusBrowser() {
               </p>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 max-w-4xl">
-                <FeatureCard icon={<Volume2 />} label="Text-to-Speech" />
-                <FeatureCard icon={<Languages />} label="Translation" />
-                <FeatureCard icon={<Highlighter />} label="Highlighting" />
-                <FeatureCard icon={<StickyNote />} label="Notes" />
-                <FeatureCard icon={<Columns />} label="Comparison" />
-                <FeatureCard icon={<WifiOff />} label="Offline Mode" />
-                <FeatureCard icon={<BarChart3 />} label="Performance" />
-                <FeatureCard icon={<Command />} label="Shortcuts" />
+                <WorkingFeatureCard icon={<Volume2 />} label="Text-to-Speech" onClick={toggleSpeech} />
+                <WorkingFeatureCard icon={<Languages />} label="Translation" onClick={() => translatePage("es")} />
+                <WorkingFeatureCard
+                  icon={<Highlighter />}
+                  label="Highlighting"
+                  onClick={() => setShowHighlights(true)}
+                />
+                <WorkingFeatureCard icon={<StickyNote />} label="Notes" onClick={() => setShowNotes(true)} />
+                <WorkingFeatureCard icon={<Columns />} label="Comparison" onClick={() => setShowComparison(true)} />
+                <WorkingFeatureCard
+                  icon={<WifiOff />}
+                  label="Offline Mode"
+                  onClick={() => setOfflineMode(!offlineMode)}
+                />
+                <WorkingFeatureCard icon={<BarChart3 />} label="Performance" onClick={() => setShowPerformance(true)} />
+                <WorkingFeatureCard icon={<Command />} label="Shortcuts" onClick={() => setShowCommandPalette(true)} />
               </div>
 
               {bookmarks.length > 0 && (
@@ -1014,6 +1397,20 @@ export default function NexusBrowser() {
           )}
         </div>
       </div>
+      {showPerformance && myctDoc && (
+        <aside className="w-80 glass-strong border-r border-accent-primary/20 p-4 overflow-auto animate-slide-in-right shadow-lg">
+          <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
+            <div className="w-1 h-4 bg-gradient-to-b from-accent-primary to-accent-secondary rounded-full" />
+            Performance Metrics
+          </h3>
+          <PerformancePanel
+            metrics={getPerformanceMetrics()}
+            cachedPages={cachedPages}
+            bookmarks={bookmarks}
+            history={history}
+          />
+        </aside>
+      )}
     </div>
   )
 }
@@ -1026,6 +1423,20 @@ const FeatureCard = memo(({ icon, label }: { icon: React.ReactNode; label: strin
     <p className="text-xs font-semibold text-foreground">{label}</p>
   </div>
 ))
+
+const WorkingFeatureCard = memo(
+  ({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) => (
+    <button
+      onClick={onClick}
+      className="hyper-card p-4 flex flex-col items-center gap-2 hover:scale-105 transition-all cursor-pointer"
+    >
+      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-accent-primary/20 to-accent-secondary/20 flex items-center justify-center text-accent-primary">
+        {icon}
+      </div>
+      <p className="text-xs font-semibold text-foreground">{label}</p>
+    </button>
+  ),
+)
 
 const CommandItem = memo(
   ({
@@ -1293,6 +1704,422 @@ function AIInsights({ myctDoc }: { myctDoc: MyctDocument }) {
               {fullText.split(/\n\n/).filter((p) => p.trim()).length}
             </span>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BacklinksPanel({
+  currentUrl,
+  backlinkTracker,
+  onNavigate,
+}: {
+  currentUrl: string
+  backlinkTracker: BacklinkTracker
+  onNavigate: (url: string) => void
+}) {
+  const backlinks = backlinkTracker.getBacklinks(currentUrl)
+
+  return (
+    <div className="space-y-3">
+      <div className="p-4 glass rounded-lg border border-accent-primary/20">
+        <p className="text-xs text-muted font-mono mb-2">Pages Linking Here</p>
+        <p className="text-2xl font-bold bg-gradient-to-r from-accent-primary to-accent-secondary bg-clip-text text-transparent">
+          {backlinks.length}
+        </p>
+      </div>
+
+      {backlinks.length === 0 ? (
+        <div className="p-6 glass rounded-lg border border-border/30 text-center">
+          <Link2 className="w-12 h-12 mx-auto mb-3 text-muted opacity-50" />
+          <p className="text-sm text-muted">No backlinks yet</p>
+          <p className="text-xs text-muted mt-2">Pages that link to this one will appear here</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {backlinks.map((link, index) => (
+            <button
+              key={index}
+              onClick={() => onNavigate(link.sourceUrl)}
+              className="w-full text-left p-3 rounded-lg hover:bg-accent-primary/10 hover:text-accent-primary transition-all group glass border border-border/30"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Link2 className="w-4 h-4 text-accent-primary" />
+                <p className="text-sm font-semibold truncate">{link.sourceUrl}</p>
+              </div>
+              <p className="text-xs text-muted group-hover:text-accent-primary/70 font-mono">
+                {new Date(link.timestamp).toLocaleString()}
+              </p>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TransclusionsPanel({
+  currentUrl,
+  transclusionEngine,
+  onNavigate,
+}: {
+  currentUrl: string
+  transclusionEngine: TransclusionEngine
+  onNavigate: (url: string) => void
+}) {
+  const [sourceUrl, setSourceUrl] = useState("")
+  const [startOffset, setStartOffset] = useState(0)
+  const [endOffset, setEndOffset] = useState(100)
+
+  const transclusions = transclusionEngine.getTransclusions(currentUrl)
+
+  const handleCreateTransclusion = () => {
+    if (!sourceUrl.trim()) return
+    transclusionEngine.createTransclusion(currentUrl, sourceUrl, startOffset, endOffset)
+    setSourceUrl("")
+    setStartOffset(0)
+    setEndOffset(100)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="p-4 glass rounded-lg border border-accent-primary/20">
+        <p className="text-xs text-muted font-mono mb-3">Create Transclusion</p>
+        <div className="space-y-3">
+          <Input
+            type="text"
+            placeholder="Source URL..."
+            value={sourceUrl}
+            onChange={(e) => setSourceUrl(e.target.value)}
+            className="text-sm"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              type="number"
+              placeholder="Start"
+              value={startOffset}
+              onChange={(e) => setStartOffset(Number.parseInt(e.target.value))}
+              className="text-sm"
+            />
+            <Input
+              type="number"
+              placeholder="End"
+              value={endOffset}
+              onChange={(e) => setEndOffset(Number.parseInt(e.target.value))}
+              className="text-sm"
+            />
+          </div>
+          <Button onClick={handleCreateTransclusion} className="w-full" size="sm">
+            <FileText className="w-4 h-4 mr-2" />
+            Create Transclusion
+          </Button>
+        </div>
+      </div>
+
+      <div className="p-4 glass rounded-lg border border-border/30">
+        <p className="text-xs text-muted font-mono mb-2">Active Transclusions</p>
+        <p className="text-2xl font-bold text-foreground">{transclusions.length}</p>
+      </div>
+
+      {transclusions.length > 0 && (
+        <div className="space-y-2">
+          {transclusions.map((transclusion) => (
+            <div key={transclusion.id} className="p-3 glass rounded-lg border border-border/30">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="w-4 h-4 text-accent-secondary" />
+                <p className="text-sm font-semibold text-foreground">Transclusion</p>
+              </div>
+              <button
+                onClick={() => onNavigate(transclusion.sourceUrl)}
+                className="text-xs text-accent-primary hover:underline truncate block w-full text-left"
+              >
+                {transclusion.sourceUrl}
+              </button>
+              <p className="text-xs text-muted mt-1">
+                Range: {transclusion.startOffset} - {transclusion.endOffset}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function VersionHistoryPanel({
+  currentUrl,
+  versionControl,
+}: {
+  currentUrl: string
+  versionControl: VersionControl
+}) {
+  const versions = versionControl.getVersions(currentUrl)
+
+  return (
+    <div className="space-y-4">
+      <div className="p-4 glass rounded-lg border border-accent-primary/20">
+        <p className="text-xs text-muted font-mono mb-2">Total Versions</p>
+        <p className="text-2xl font-bold bg-gradient-to-r from-accent-primary to-accent-secondary bg-clip-text text-transparent">
+          {versions.length}
+        </p>
+      </div>
+
+      {versions.length === 0 ? (
+        <div className="p-6 glass rounded-lg border border-border/30 text-center">
+          <GitBranch className="w-12 h-12 mx-auto mb-3 text-muted opacity-50" />
+          <p className="text-sm text-muted">No versions saved yet</p>
+          <p className="text-xs text-muted mt-2">Page versions will be tracked automatically</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {versions.map((version) => (
+            <div key={version.id} className="p-3 glass rounded-lg border border-border/30">
+              <div className="flex items-center gap-2 mb-2">
+                <GitBranch className="w-4 h-4 text-accent-primary" />
+                <p className="text-sm font-semibold text-foreground">Version {version.version}</p>
+              </div>
+              <p className="text-xs text-muted font-mono">{new Date(version.timestamp).toLocaleString()}</p>
+              <p className="text-xs text-muted mt-1">{version.message || "Auto-saved version"}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WorkspacesPanel() {
+  const [workspaces] = useState([
+    { id: "1", name: "Research", members: 5, pages: 23 },
+    { id: "2", name: "Team Docs", members: 12, pages: 47 },
+    { id: "3", name: "Personal", members: 1, pages: 15 },
+  ])
+
+  return (
+    <div className="space-y-4">
+      <div className="p-4 glass rounded-lg border border-accent-primary/20">
+        <p className="text-xs text-muted font-mono mb-3">Create Workspace</p>
+        <div className="space-y-3">
+          <Input type="text" placeholder="Workspace name..." className="text-sm" />
+          <Button className="w-full" size="sm">
+            <Users className="w-4 h-4 mr-2" />
+            Create Workspace
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {workspaces.map((workspace) => (
+          <div
+            key={workspace.id}
+            className="p-4 glass rounded-lg border border-border/30 hover:border-accent-primary/30 transition-all cursor-pointer"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-accent-primary/20 to-accent-secondary/20 flex items-center justify-center">
+                <Users className="w-5 h-5 text-accent-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-foreground">{workspace.name}</p>
+                <p className="text-xs text-muted">{workspace.members} members</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-muted">
+              <span>{workspace.pages} pages</span>
+              <span>•</span>
+              <span>Active</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PerformancePanel({
+  metrics,
+  cachedPages,
+  bookmarks,
+  history,
+}: {
+  metrics: any
+  cachedPages: Map<string, MyctDocument>
+  bookmarks: BookmarkedPage[]
+  history: string[]
+}) {
+  if (!metrics) return null
+
+  return (
+    <div className="space-y-4">
+      <div className="p-4 glass rounded-lg border border-accent-primary/20">
+        <p className="text-xs text-muted font-mono mb-2">Load Time</p>
+        <p className="text-2xl font-bold bg-gradient-to-r from-accent-primary to-accent-secondary bg-clip-text text-transparent">
+          {metrics.loadTime}ms
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="p-3 glass rounded-lg border border-border/30">
+          <p className="text-xs text-muted font-mono mb-1">Nodes</p>
+          <p className="text-xl font-bold text-foreground">{metrics.nodeCount}</p>
+        </div>
+        <div className="p-3 glass rounded-lg border border-border/30">
+          <p className="text-xs text-muted font-mono mb-1">Links</p>
+          <p className="text-xl font-bold text-foreground">{metrics.linkCount}</p>
+        </div>
+        <div className="p-3 glass rounded-lg border border-border/30">
+          <p className="text-xs text-muted font-mono mb-1">Images</p>
+          <p className="text-xl font-bold text-foreground">{metrics.imageCount}</p>
+        </div>
+        <div className="p-3 glass rounded-lg border border-border/30">
+          <p className="text-xs text-muted font-mono mb-1">Words</p>
+          <p className="text-xl font-bold text-foreground">{metrics.wordCount}</p>
+        </div>
+      </div>
+
+      <div className="p-4 glass rounded-lg border border-border/30">
+        <p className="text-xs text-muted font-mono mb-3">Memory Usage</p>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted">Cache Size</span>
+            <span className="text-foreground font-semibold">{cachedPages.size} pages</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted">Bookmarks</span>
+            <span className="text-foreground font-semibold">{bookmarks.length}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted">History</span>
+            <span className="text-foreground font-semibold">{history.length}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SpatialNavigationPanel({
+  myctDoc,
+  currentUrl,
+  onNavigate,
+}: {
+  myctDoc: MyctDocument
+  currentUrl: string
+  onNavigate: (url: string) => void
+}) {
+  const [nodes, setNodes] = useState<Array<{ id: string; label: string; x: number; y: number; z: number }>>([])
+  const [edges, setEdges] = useState<Array<{ from: string; to: string }>>([])
+
+  useEffect(() => {
+    // Extract all links from the document
+    const extractLinks = (node: any): Array<{ text: string; url: string }> => {
+      const links: Array<{ text: string; url: string }> = []
+      if (node.type === "link" && node.url) {
+        links.push({ text: node.content || "Link", url: node.url })
+      }
+      if (node.children) {
+        for (const child of node.children) {
+          links.push(...extractLinks(child))
+        }
+      }
+      return links
+    }
+
+    const allLinks = extractLinks(myctDoc.root)
+    const uniqueUrls = Array.from(new Set([currentUrl, ...allLinks.map((l) => l.url)]))
+
+    // Create 3D positions for nodes
+    const newNodes = uniqueUrls.map((url, index) => {
+      const angle = (index / uniqueUrls.length) * Math.PI * 2
+      const radius = 200
+      return {
+        id: url,
+        label: url.split("/").pop() || url,
+        x: Math.cos(angle) * radius,
+        y: Math.sin(angle) * radius,
+        z: (index % 3) * 100 - 100,
+      }
+    })
+
+    const newEdges = allLinks.map((link) => ({
+      from: currentUrl,
+      to: link.url,
+    }))
+
+    setNodes(newNodes)
+    setEdges(newEdges)
+  }, [myctDoc, currentUrl])
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="p-4 glass rounded-lg border border-accent-primary/20 mb-4">
+        <p className="text-xs text-muted font-mono mb-2">3D Knowledge Graph</p>
+        <p className="text-sm text-foreground">
+          {nodes.length} nodes, {edges.length} connections
+        </p>
+      </div>
+
+      <div className="flex-1 glass rounded-lg border border-border/30 p-4 relative overflow-hidden">
+        <svg className="w-full h-full" viewBox="-300 -300 600 600">
+          {/* Draw edges */}
+          {edges.map((edge, index) => {
+            const fromNode = nodes.find((n) => n.id === edge.from)
+            const toNode = nodes.find((n) => n.id === edge.to)
+            if (!fromNode || !toNode) return null
+
+            return (
+              <line
+                key={index}
+                x1={fromNode.x}
+                y1={fromNode.y}
+                x2={toNode.x}
+                y2={toNode.y}
+                stroke="currentColor"
+                strokeWidth="1"
+                className="text-accent-primary/30"
+              />
+            )
+          })}
+
+          {/* Draw nodes */}
+          {nodes.map((node, index) => (
+            <g key={index}>
+              <circle
+                cx={node.x}
+                cy={node.y}
+                r={node.id === currentUrl ? 12 : 8}
+                fill="currentColor"
+                className={node.id === currentUrl ? "text-accent-primary" : "text-accent-secondary"}
+                style={{ cursor: "pointer" }}
+                onClick={() => onNavigate(node.id)}
+              />
+              <text
+                x={node.x}
+                y={node.y + 25}
+                textAnchor="middle"
+                className="text-xs fill-current text-foreground"
+                style={{ pointerEvents: "none" }}
+              >
+                {node.label.substring(0, 15)}
+              </text>
+            </g>
+          ))}
+        </svg>
+      </div>
+
+      <div className="mt-4 p-4 glass rounded-lg border border-border/30">
+        <p className="text-xs text-muted font-mono mb-2">Controls</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button className="px-3 py-2 glass-strong rounded-lg text-xs hover:bg-layer-2 transition-colors">
+            Rotate
+          </button>
+          <button className="px-3 py-2 glass-strong rounded-lg text-xs hover:bg-layer-2 transition-colors">Zoom</button>
+          <button className="px-3 py-2 glass-strong rounded-lg text-xs hover:bg-layer-2 transition-colors">
+            Reset
+          </button>
+          <button className="px-3 py-2 glass-strong rounded-lg text-xs hover:bg-layer-2 transition-colors">
+            Fullscreen
+          </button>
         </div>
       </div>
     </div>
