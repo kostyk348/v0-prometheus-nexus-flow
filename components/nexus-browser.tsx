@@ -1,5 +1,7 @@
 "use client"
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, memo } from "react"
+import type React from "react"
+
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,6 +21,21 @@ import {
   History,
   Download,
   Sparkles,
+  Share2,
+  Copy,
+  Menu,
+  X,
+  Volume2,
+  Moon,
+  Command,
+  Printer,
+  Highlighter,
+  StickyNote,
+  Columns,
+  WifiOff,
+  BarChart3,
+  Languages,
+  BookOpen,
 } from "lucide-react"
 import MyctRenderer from "@/components/myct-renderer"
 import LensSelector from "@/components/lens-selector"
@@ -31,7 +48,24 @@ interface BookmarkedPage {
   url: string
   title: string
   timestamp: number
+  collection?: string
 }
+
+interface Note {
+  id: string
+  content: string
+  timestamp: number
+}
+
+interface Highlight {
+  id: string
+  text: string
+  color: string
+  timestamp: number
+}
+
+const MemoizedMyctRenderer = memo(MyctRenderer)
+const MemoizedLensSelector = memo(LensSelector)
 
 export default function NexusBrowser() {
   const [url, setUrl] = useState("")
@@ -51,6 +85,27 @@ export default function NexusBrowser() {
   const [showBookmarks, setShowBookmarks] = useState(false)
   const [showAI, setShowAI] = useState(false)
   const [viewMode, setViewMode] = useState<"standard" | "bento" | "layers">("standard")
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
+
+  const [darkMode, setDarkMode] = useState(false)
+  const [fontSize, setFontSize] = useState(16)
+  const [readingMode, setReadingMode] = useState(false)
+  const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [showNotes, setShowNotes] = useState(false)
+  const [showHighlights, setShowHighlights] = useState(false)
+  const [showCollections, setShowCollections] = useState(false)
+  const [showComparison, setShowComparison] = useState(false)
+  const [comparisonUrl, setComparisonUrl] = useState("")
+  const [comparisonDoc, setComparisonDoc] = useState<MyctDocument | null>(null)
+  const [offlineMode, setOfflineMode] = useState(false)
+  const [cachedPages, setCachedPages] = useState<Map<string, MyctDocument>>(new Map())
+  const [showPerformance, setShowPerformance] = useState(false)
+  const [loadTime, setLoadTime] = useState(0)
+  const [notes, setNotes] = useState<Map<string, Note[]>>(new Map())
+  const [highlights, setHighlights] = useState<Map<string, Highlight[]>>(new Map())
+  const [collections, setCollections] = useState<string[]>(["Reading List", "Research", "Favorites"])
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [translationLang, setTranslationLang] = useState<string | null>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem("nexus-bookmarks")
@@ -61,6 +116,39 @@ export default function NexusBrowser() {
         console.error("Failed to load bookmarks", e)
       }
     }
+
+    const savedDarkMode = localStorage.getItem("nexus-dark-mode")
+    if (savedDarkMode) setDarkMode(savedDarkMode === "true")
+
+    const savedFontSize = localStorage.getItem("nexus-font-size")
+    if (savedFontSize) setFontSize(Number.parseInt(savedFontSize))
+
+    const savedNotes = localStorage.getItem("nexus-notes")
+    if (savedNotes) {
+      try {
+        setNotes(new Map(JSON.parse(savedNotes)))
+      } catch (e) {
+        console.error("Failed to load notes", e)
+      }
+    }
+
+    const savedHighlights = localStorage.getItem("nexus-highlights")
+    if (savedHighlights) {
+      try {
+        setHighlights(new Map(JSON.parse(savedHighlights)))
+      } catch (e) {
+        console.error("Failed to load highlights", e)
+      }
+    }
+
+    const savedCollections = localStorage.getItem("nexus-collections")
+    if (savedCollections) {
+      try {
+        setCollections(JSON.parse(savedCollections))
+      } catch (e) {
+        console.error("Failed to load collections", e)
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -68,17 +156,77 @@ export default function NexusBrowser() {
   }, [bookmarks])
 
   useEffect(() => {
+    localStorage.setItem("nexus-dark-mode", darkMode.toString())
+    document.documentElement.classList.toggle("dark", darkMode)
+  }, [darkMode])
+
+  useEffect(() => {
+    localStorage.setItem("nexus-font-size", fontSize.toString())
+    document.documentElement.style.fontSize = `${fontSize}px`
+  }, [fontSize])
+
+  useEffect(() => {
+    localStorage.setItem("nexus-notes", JSON.stringify(Array.from(notes.entries())))
+  }, [notes])
+
+  useEffect(() => {
+    localStorage.setItem("nexus-highlights", JSON.stringify(Array.from(highlights.entries())))
+  }, [highlights])
+
+  useEffect(() => {
+    localStorage.setItem("nexus-collections", JSON.stringify(collections))
+  }, [collections])
+
+  useEffect(() => {
     const lensSlug = selectedLens.name.toLowerCase().replace(/\s+/g, "-")
     document.body.setAttribute("data-lens", lensSlug)
   }, [selectedLens])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault()
+        setShowCommandPalette(true)
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "b") {
+        e.preventDefault()
+        toggleBookmark()
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "d") {
+        e.preventDefault()
+        setDarkMode(!darkMode)
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "r") {
+        e.preventDefault()
+        setReadingMode(!readingMode)
+      }
+      if (e.key === "Escape") {
+        setShowCommandPalette(false)
+        setShowMobileMenu(false)
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [darkMode, readingMode])
 
   const navigateToUrl = useCallback(
     async (targetUrl: string, addToHistory = true) => {
       if (!targetUrl.trim()) return
 
+      const startTime = performance.now()
       setLoading(true)
       setError(null)
       setMyctDoc(null)
+
+      if (offlineMode && cachedPages.has(targetUrl)) {
+        setMyctDoc(cachedPages.get(targetUrl)!)
+        setCurrentUrl(targetUrl)
+        setUrl(targetUrl)
+        setLoading(false)
+        setLoadTime(performance.now() - startTime)
+        return
+      }
 
       const result = await translateUrl(targetUrl)
 
@@ -91,6 +239,8 @@ export default function NexusBrowser() {
         setUrl(targetUrl)
         setError(null)
 
+        setCachedPages((prev) => new Map(prev).set(targetUrl, result.myct!))
+
         if (addToHistory) {
           const newHistory = history.slice(0, historyIndex + 1)
           newHistory.push(targetUrl)
@@ -100,8 +250,9 @@ export default function NexusBrowser() {
       }
 
       setLoading(false)
+      setLoadTime(performance.now() - startTime)
     },
-    [history, historyIndex],
+    [history, historyIndex, offlineMode, cachedPages],
   )
 
   const handleNavigate = () => {
@@ -130,7 +281,7 @@ export default function NexusBrowser() {
     setError(null)
   }
 
-  const toggleBookmark = () => {
+  const toggleBookmark = (collection?: string) => {
     if (!currentUrl || !myctDoc) return
 
     const existing = bookmarks.find((b) => b.url === currentUrl)
@@ -143,6 +294,7 @@ export default function NexusBrowser() {
           url: currentUrl,
           title: myctDoc.root.children?.[0]?.content || currentUrl,
           timestamp: Date.now(),
+          collection,
         },
       ])
     }
@@ -152,18 +304,71 @@ export default function NexusBrowser() {
     return bookmarks.some((b) => b.url === currentUrl)
   }, [bookmarks, currentUrl])
 
+  const toggleSpeech = () => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel()
+      setIsSpeaking(false)
+    } else {
+      if (!myctDoc) return
+      const text = extractTextContent(myctDoc.root)
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.onend = () => setIsSpeaking(false)
+      window.speechSynthesis.speak(utterance)
+      setIsSpeaking(true)
+    }
+  }
+
+  const extractTextContent = (node: any): string => {
+    if (node.type === "text") return node.content || ""
+    if (node.children) return node.children.map(extractTextContent).join(" ")
+    return ""
+  }
+
   const exportAsMarkdown = () => {
     if (!myctDoc) return
 
-    const extractText = (node: any): string => {
+    const extractText = (node: any, depth = 0): string => {
+      const lines: string[] = []
+
       if (node.type === "text") {
-        const prefix = node.role === "heading-2" ? "## " : node.role === "heading-3" ? "### " : ""
-        return prefix + (node.content || "")
+        if (node.role === "page-title") {
+          lines.push(`# ${node.content || ""}`)
+        } else if (node.role?.startsWith("heading")) {
+          const level = node.role.split("-")[1]
+          const hashes = "#".repeat(Math.min(Number.parseInt(level) + 1, 6))
+          lines.push(`${hashes} ${node.content || ""}`)
+        } else if (node.role === "paragraph") {
+          lines.push(node.content || "")
+        } else if (node.role === "list-item") {
+          lines.push(`- ${node.content || ""}`)
+        } else if (node.role === "quote") {
+          lines.push(`> ${node.content || ""}`)
+        } else {
+          lines.push(node.content || "")
+        }
+      } else if (node.type === "link") {
+        lines.push(`[${node.content || "Link"}](${node.url || ""})`)
+      } else if (node.type === "image") {
+        lines.push(`![${node.alt || "Image"}](${node.src || ""})`)
+      } else if (node.type === "section" && node.children) {
+        for (const child of node.children) {
+          lines.push(extractText(child, depth + 1))
+        }
+      } else if (node.type === "table" && node.headers && node.rows) {
+        // Table header
+        lines.push(`| ${node.headers.join(" | ")} |`)
+        lines.push(`| ${node.headers.map(() => "---").join(" | ")} |`)
+        // Table rows
+        for (const row of node.rows) {
+          lines.push(`| ${row.join(" | ")} |`)
+        }
+      } else if (node.children) {
+        for (const child of node.children) {
+          lines.push(extractText(child, depth))
+        }
       }
-      if (node.children) {
-        return node.children.map(extractText).join("\n\n")
-      }
-      return ""
+
+      return lines.filter((l) => l.trim()).join("\n\n")
     }
 
     const markdown = extractText(myctDoc.root)
@@ -171,9 +376,78 @@ export default function NexusBrowser() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `${myctDoc.root.children?.[0]?.content || "page"}.md`
+    const title = myctDoc.root.children?.[0]?.content || "page"
+    a.download = `${title.replace(/[^a-z0-9]/gi, "-").toLowerCase()}.md`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const exportAsPDF = () => {
+    window.print()
+  }
+
+  const shareCurrentPage = async () => {
+    if (!currentUrl || !myctDoc) return
+
+    const title = myctDoc.root.children?.[0]?.content || "Page"
+    const text = `Check out this page: ${title}`
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text, url: currentUrl })
+      } catch (err) {
+        console.error("Share failed:", err)
+      }
+    } else {
+      // Fallback: copy to clipboard
+      await navigator.clipboard.writeText(currentUrl)
+      alert("URL copied to clipboard!")
+    }
+  }
+
+  const copyContent = async () => {
+    if (!myctDoc) return
+
+    const extractText = (node: any): string => {
+      if (node.type === "text") return node.content || ""
+      if (node.children) return node.children.map(extractText).join("\n\n")
+      return ""
+    }
+
+    const text = extractText(myctDoc.root)
+    await navigator.clipboard.writeText(text)
+    alert("Content copied to clipboard!")
+  }
+
+  const addNote = (content: string) => {
+    if (!currentUrl) return
+    const pageNotes = notes.get(currentUrl) || []
+    const newNote: Note = {
+      id: Date.now().toString(),
+      content,
+      timestamp: Date.now(),
+    }
+    setNotes(new Map(notes).set(currentUrl, [...pageNotes, newNote]))
+  }
+
+  const addHighlight = (text: string, color: string) => {
+    if (!currentUrl) return
+    const pageHighlights = highlights.get(currentUrl) || []
+    const newHighlight: Highlight = {
+      id: Date.now().toString(),
+      text,
+      color,
+      timestamp: Date.now(),
+    }
+    setHighlights(new Map(highlights).set(currentUrl, [...pageHighlights, newHighlight]))
+  }
+
+  const loadComparison = async () => {
+    if (!comparisonUrl.trim()) return
+    const result = await translateUrl(comparisonUrl)
+    if (result.myct) {
+      setComparisonDoc(result.myct)
+    }
   }
 
   const exampleUrls = useMemo(
@@ -187,22 +461,71 @@ export default function NexusBrowser() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
+      {showCommandPalette && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center pt-32 animate-fade-in">
+          <div className="w-full max-w-2xl glass-strong rounded-2xl shadow-2xl shadow-glow-primary/30 overflow-hidden animate-slide-in-up">
+            <div className="p-4 border-b border-accent-primary/20">
+              <div className="flex items-center gap-3">
+                <Command className="w-5 h-5 text-accent-primary" />
+                <Input
+                  type="text"
+                  placeholder="Type a command..."
+                  className="border-0 bg-transparent focus:ring-0 text-foreground placeholder:text-muted-foreground"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="p-2 max-h-96 overflow-y-auto">
+              <CommandItem icon={<Bookmark />} label="Toggle Bookmark" shortcut="⌘B" onClick={toggleBookmark} />
+              <CommandItem
+                icon={<Moon />}
+                label="Toggle Dark Mode"
+                shortcut="⌘D"
+                onClick={() => setDarkMode(!darkMode)}
+              />
+              <CommandItem
+                icon={<BookOpen />}
+                label="Reading Mode"
+                shortcut="⌘R"
+                onClick={() => setReadingMode(!readingMode)}
+              />
+              <CommandItem icon={<Volume2 />} label="Text to Speech" onClick={toggleSpeech} />
+              <CommandItem icon={<Download />} label="Export Markdown" onClick={exportAsMarkdown} />
+              <CommandItem icon={<Printer />} label="Export PDF" onClick={exportAsPDF} />
+              <CommandItem icon={<Share2 />} label="Share Page" onClick={shareCurrentPage} />
+              <CommandItem icon={<Copy />} label="Copy Content" onClick={copyContent} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="glass-strong border-b border-accent-primary/20 sticky top-0 z-50 shadow-lg shadow-glow-primary/10">
-        <div className="flex items-center gap-4 p-4 max-w-7xl mx-auto">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-accent-primary via-accent-secondary to-accent-tertiary rounded-xl flex items-center justify-center shadow-xl shadow-glow-primary/50 relative overflow-hidden">
+        <div className="flex items-center gap-2 sm:gap-4 p-2 sm:p-4 max-w-7xl mx-auto">
+          {/* Mobile menu button */}
+          <Button
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            variant="ghost"
+            size="sm"
+            className="md:hidden w-9 h-9 p-0 hover:bg-accent-primary/10"
+          >
+            {showMobileMenu ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </Button>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-accent-primary via-accent-secondary to-accent-tertiary rounded-xl flex items-center justify-center shadow-xl shadow-glow-primary/50 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
-              <span className="text-background font-mono font-bold text-lg relative z-10">ΠN</span>
+              <span className="text-background font-mono font-bold text-base sm:text-lg relative z-10">ΠN</span>
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-lg font-mono font-bold bg-gradient-to-r from-accent-primary via-accent-secondary to-accent-tertiary bg-clip-text text-transparent">
+              <h1 className="text-base sm:text-lg font-mono font-bold bg-gradient-to-r from-accent-primary via-accent-secondary to-accent-tertiary bg-clip-text text-transparent">
                 Prometheus Nexus
               </h1>
-              <p className="text-xs text-muted font-mono">Hyperdimensional Browser</p>
+              <p className="text-xs text-muted font-mono hidden lg:block">Hyperdimensional Browser</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 glass rounded-lg p-1 border border-border/30">
+          {/* Desktop navigation */}
+          <div className="hidden md:flex items-center gap-1 glass rounded-lg p-1 border border-border/30">
             <Button
               onClick={goBack}
               disabled={historyIndex <= 0}
@@ -233,34 +556,38 @@ export default function NexusBrowser() {
 
           <div className="flex-1 flex items-center gap-2">
             <div className="relative flex-1 max-w-2xl">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent-primary/60" />
+              <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-accent-primary/60" />
               <Input
                 type="text"
-                placeholder="Enter any URL to explore..."
+                placeholder="Enter URL..."
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && handleNavigate()}
-                className="pl-10 glass border-accent-primary/20 text-foreground placeholder:text-muted focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/20 transition-all"
+                className="pl-8 sm:pl-10 text-sm glass border-accent-primary/20 text-foreground placeholder:text-muted focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/20 transition-all"
               />
             </div>
             <Button
               onClick={handleNavigate}
               disabled={loading}
-              className="bg-gradient-to-r from-accent-primary via-accent-secondary to-accent-tertiary hover:shadow-xl hover:shadow-glow-primary/50 text-background font-semibold transition-all hover:scale-105"
+              size="sm"
+              className="bg-gradient-to-r from-accent-primary via-accent-secondary to-accent-tertiary hover:shadow-xl hover:shadow-glow-primary/50 text-background font-semibold transition-all hover:scale-105 hidden sm:flex"
             >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <Zap className="w-4 h-4 mr-2" />
-                  Navigate
-                </>
-              )}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+              <span className="hidden lg:inline ml-2">Navigate</span>
+            </Button>
+            <Button
+              onClick={handleNavigate}
+              disabled={loading}
+              size="sm"
+              className="sm:hidden w-9 h-9 p-0 bg-gradient-to-r from-accent-primary via-accent-secondary to-accent-tertiary"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
             </Button>
           </div>
 
+          {/* Desktop controls */}
           {myctDoc && (
-            <>
+            <div className="hidden lg:flex items-center gap-1">
               <div className="flex items-center gap-1 glass rounded-lg p-1 border border-border/30">
                 <Button
                   onClick={() => setViewMode("standard")}
@@ -349,12 +676,152 @@ export default function NexusBrowser() {
                 >
                   <Download className="w-4 h-4" />
                 </Button>
+                <Button
+                  onClick={shareCurrentPage}
+                  variant="ghost"
+                  size="sm"
+                  className="w-9 h-9 p-0 hover:bg-accent-primary/10 hover:text-accent-primary"
+                  title="Share Page"
+                >
+                  <Share2 className="w-4 h-4" />
+                </Button>
+                <Button
+                  onClick={copyContent}
+                  variant="ghost"
+                  size="sm"
+                  className="w-9 h-9 p-0 hover:bg-accent-primary/10 hover:text-accent-primary"
+                  title="Copy Content"
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
               </div>
-            </>
+            </div>
           )}
 
-          <LensSelector selectedLens={selectedLens} onLensChange={setSelectedLens} />
+          <div className="hidden md:block">
+            <LensSelector selectedLens={selectedLens} onLensChange={setSelectedLens} />
+          </div>
         </div>
+
+        {showMobileMenu && myctDoc && (
+          <div className="md:hidden border-t border-accent-primary/20 p-4 space-y-3 animate-slide-in-up glass-strong">
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={goBack}
+                disabled={historyIndex <= 0}
+                variant="outline"
+                size="sm"
+                className="flex-1 bg-transparent"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+              <Button
+                onClick={goForward}
+                disabled={historyIndex >= history.length - 1}
+                variant="outline"
+                size="sm"
+                className="flex-1"
+              >
+                <ArrowRight className="w-4 h-4 mr-2" />
+                Forward
+              </Button>
+              <Button onClick={goHome} variant="outline" size="sm" className="flex-1 bg-transparent">
+                <Home className="w-4 h-4 mr-2" />
+                Home
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                onClick={() => {
+                  setViewMode("standard")
+                  setShowMobileMenu(false)
+                }}
+                variant={viewMode === "standard" ? "default" : "outline"}
+                size="sm"
+              >
+                <Eye className="w-4 h-4 mr-1" />
+                Standard
+              </Button>
+              <Button
+                onClick={() => {
+                  setViewMode("bento")
+                  setShowMobileMenu(false)
+                }}
+                variant={viewMode === "bento" ? "default" : "outline"}
+                size="sm"
+              >
+                <Grid3x3 className="w-4 h-4 mr-1" />
+                Bento
+              </Button>
+              <Button
+                onClick={() => {
+                  setViewMode("layers")
+                  setShowMobileMenu(false)
+                }}
+                variant={viewMode === "layers" ? "default" : "outline"}
+                size="sm"
+              >
+                <Layers className="w-4 h-4 mr-1" />
+                Layers
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                onClick={() => {
+                  setShowOutline(!showOutline)
+                  setShowMobileMenu(false)
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <List className="w-4 h-4 mr-2" />
+                Outline
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowGraph(!showGraph)
+                  setShowMobileMenu(false)
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <Network className="w-4 h-4 mr-2" />
+                Graph
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowAI(!showAI)
+                  setShowMobileMenu(false)
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                AI Insights
+              </Button>
+              <Button onClick={toggleBookmark} variant="outline" size="sm">
+                <Bookmark className={`w-4 h-4 mr-2 ${isBookmarked ? "fill-current" : ""}`} />
+                Bookmark
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button onClick={exportAsMarkdown} variant="outline" size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                Export MD
+              </Button>
+              <Button onClick={shareCurrentPage} variant="outline" size="sm">
+                <Share2 className="w-4 h-4 mr-2" />
+                Share
+              </Button>
+            </div>
+
+            <LensSelector selectedLens={selectedLens} onLensChange={setSelectedLens} />
+          </div>
+        )}
       </header>
 
       <div className="flex-1 overflow-auto flex">
@@ -459,10 +926,21 @@ export default function NexusBrowser() {
               <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-accent-primary via-accent-secondary to-accent-tertiary bg-clip-text text-transparent">
                 Prometheus Nexus Flow
               </h2>
-              <p className="text-muted max-w-lg mb-10 leading-relaxed text-lg">
+              <p className="text-foreground max-w-lg mb-10 leading-relaxed text-lg font-medium">
                 A hyperdimensional semantic browser with AI insights, connection graphs, bookmarks, and transformative
                 lenses.
               </p>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 max-w-4xl">
+                <FeatureCard icon={<Volume2 />} label="Text-to-Speech" />
+                <FeatureCard icon={<Languages />} label="Translation" />
+                <FeatureCard icon={<Highlighter />} label="Highlighting" />
+                <FeatureCard icon={<StickyNote />} label="Notes" />
+                <FeatureCard icon={<Columns />} label="Comparison" />
+                <FeatureCard icon={<WifiOff />} label="Offline Mode" />
+                <FeatureCard icon={<BarChart3 />} label="Performance" />
+                <FeatureCard icon={<Command />} label="Shortcuts" />
+              </div>
 
               {bookmarks.length > 0 && (
                 <div className="w-full max-w-md mb-8">
@@ -485,7 +963,7 @@ export default function NexusBrowser() {
                             <p className="text-sm font-semibold text-foreground group-hover:text-accent-primary transition-colors truncate">
                               {bookmark.title}
                             </p>
-                            <p className="text-xs text-muted font-mono truncate">{bookmark.url}</p>
+                            <p className="text-xs text-accent-secondary font-mono truncate">{bookmark.url}</p>
                           </div>
                         </div>
                       </button>
@@ -513,7 +991,7 @@ export default function NexusBrowser() {
                         <p className="text-sm font-semibold text-foreground group-hover:text-accent-primary transition-colors">
                           {example.label}
                         </p>
-                        <p className="text-xs text-muted font-mono truncate">{example.url}</p>
+                        <p className="text-xs text-accent-secondary font-mono truncate">{example.url}</p>
                       </div>
                     </div>
                   </button>
@@ -524,7 +1002,14 @@ export default function NexusBrowser() {
 
           {myctDoc && !loading && (
             <div className={`${viewMode === "bento" ? "" : "max-w-5xl mx-auto p-6"} animate-slide-in-up`}>
-              <MyctRenderer myctDoc={myctDoc} lens={selectedLens} onNavigate={navigateToUrl} viewMode={viewMode} />
+              <MemoizedMyctRenderer
+                myctDoc={myctDoc}
+                lens={selectedLens}
+                onNavigate={navigateToUrl}
+                viewMode={viewMode}
+                readingMode={readingMode}
+                fontSize={fontSize}
+              />
             </div>
           )}
         </div>
@@ -532,6 +1017,44 @@ export default function NexusBrowser() {
     </div>
   )
 }
+
+const FeatureCard = memo(({ icon, label }: { icon: React.ReactNode; label: string }) => (
+  <div className="hyper-card p-4 flex flex-col items-center gap-2 hover:scale-105 transition-all">
+    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-accent-primary/20 to-accent-secondary/20 flex items-center justify-center text-accent-primary">
+      {icon}
+    </div>
+    <p className="text-xs font-semibold text-foreground">{label}</p>
+  </div>
+))
+
+const CommandItem = memo(
+  ({
+    icon,
+    label,
+    shortcut,
+    onClick,
+  }: {
+    icon: React.ReactNode
+    label: string
+    shortcut?: string
+    onClick: () => void
+  }) => (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent-primary/10 hover:text-accent-primary transition-all group"
+    >
+      <div className="w-8 h-8 rounded-lg bg-accent-primary/10 flex items-center justify-center text-accent-primary group-hover:bg-accent-primary/20">
+        {icon}
+      </div>
+      <span className="flex-1 text-left text-sm font-medium text-foreground group-hover:text-accent-primary">
+        {label}
+      </span>
+      {shortcut && (
+        <span className="text-xs font-mono text-muted-foreground group-hover:text-accent-primary/70">{shortcut}</span>
+      )}
+    </button>
+  ),
+)
 
 function DocumentOutline({ node, depth = 0 }: { node: any; depth?: number }) {
   if (node.type === "section" && node.children && node.children.length > 0) {
