@@ -4,6 +4,7 @@
 
 [![Next.js](https://img.shields.io/badge/Next.js-15.2-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![CI](https://github.com/kostyk348/v0-prometheus-nexus-flow/actions/workflows/ci.yml/badge.svg)](https://github.com/kostyk348/v0-prometheus-nexus-flow/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
 ## ✨ What is Prometheus Nexus Flow?
