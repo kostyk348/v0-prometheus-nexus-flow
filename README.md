@@ -1,4 +1,21 @@
+<div align="center">
+
+<img src="docs/banner.svg" alt="v0-prometheus-nexus-flow banner" width="1000">
+
 # 🌐 Prometheus Nexus Flow
+
+### Hyperdimensional semantic browser inspired by Ted Nelson's Project Xanadu. Transforms webpages into interactive, lens-filtered hypergraphs with bidirectional links and transclusion.
+
+[![Next.js](https://img.shields.io/badge/Next.js-15.2-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![CI](https://github.com/kostyk348/v0-prometheus-nexus-flow/actions/workflows/ci.yml/badge.svg)](https://github.com/kostyk348/v0-prometheus-nexus-flow/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/prometheus-nexus-flow)
+
+</div>
+
+---
+
 
 > A revolutionary hyperdimensional semantic browser inspired by Ted Nelson's Project Xanadu and decentralized mesh networking. Transform any webpage into an interactive, lens-filtered hypergraph with bidirectional links, transclusion, and version control.
 
